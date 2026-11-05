@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Stat-backed Polymarket parlays for NFL, NBA, MLB and soccer, with live odds.">
+<title>Pacheco Parlay Hub</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Archivo:wght@400;500;600;800&family=Chivo+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a banknote-and-sportsbook board. Hero marquee with drawn sport balls, a ticker of the slate, then parlay "cash tickets" with guilloche borders and serial numbers. Single dark look by choice. */
+:root{
+  color-scheme:dark;
+  --bg:#08201a; --bg2:#0d2c24; --note:#123a2f; --note-hi:#184a3c;
+  --cream:#f1ead2; --mute:#a9b8a6; --line:#2a5446;
+  --gold:#f2c14e; --gold-deep:#b9852a; --cash:#7ee2a8;
+  --low:#7ee2a8; --med:#f2c14e; --high:#ff7a6b;
+  --f-sign:"Bungee","Impact","Arial Black",sans-serif;
+  --f-body:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-num:"Chivo Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--cream);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  background-image:radial-gradient(1200px 500px at 50% -120px,#1e5a47 0%,transparent 70%),repeating-linear-gradient(135deg,rgba(255,255,255,.018) 0 2px,transparent 2px 9px)}
+#rain{position:fixed;inset:0;pointer-events:none;z-index:50}
+.wrap{max-width:900px;margin:0 auto;padding-block:18px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+
+.hero{position:relative;border-radius:18px;padding:22px 20px 18px;overflow:hidden;
+  background:linear-gradient(160deg,var(--note-hi),var(--note) 55%,#0b2a21);border:1px solid var(--line)}
+.hero::before{content:"";position:absolute;inset:8px;border-radius:12px;border:1px dashed rgba(242,193,78,.35);pointer-events:none}
+.hero::after{content:"";position:absolute;right:-60px;top:-60px;width:260px;height:260px;border-radius:50%;
+  background:repeating-radial-gradient(circle,rgba(242,193,78,.16) 0 1px,transparent 1px 7px);pointer-events:none}
+.hero-row{position:relative;display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--f-sign);font-weight:400;font-size:clamp(36px,8vw,62px);line-height:.9;margin:0;color:var(--gold);
+  text-shadow:0 3px 0 var(--gold-deep),0 6px 18px rgba(0,0,0,.45);letter-spacing:.01em}
+.tagline{margin:6px 0 0;color:var(--mute);font-size:14px;max-width:46ch}
+.stamp{font-family:var(--f-num);font-size:12px;color:var(--mute);text-align:right;line-height:1.5}
+.stamp b{color:var(--cash);font-weight:600}
+.stamp.stale b{color:var(--high)}
+.balls{position:relative;display:flex;gap:10px;margin-top:16px}
+.balls svg{width:44px;height:44px;flex:none;filter:drop-shadow(0 4px 6px rgba(0,0,0,.35))}
+@media (prefers-reduced-motion:no-preference){.balls svg{animation:bob 2.6s ease-in-out infinite}.balls svg:nth-child(2){animation-delay:.3s}.balls svg:nth-child(3){animation-delay:.6s}.balls svg:nth-child(4){animation-delay:.9s}
+  @keyframes bob{50%{transform:translateY(-6px) rotate(-8deg)}}}
+
+.ticker{overflow:hidden;border-block:1px solid var(--line);background:#06190f;mask-image:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.ticker-track{display:flex;gap:28px;width:max-content;padding:9px 0;font-family:var(--f-num);font-size:12.5px;white-space:nowrap}
+.ticker-track span b{color:var(--gold);font-weight:600}
+@media (prefers-reduced-motion:no-preference){.ticker-track{animation:tick 70s linear infinite}@keyframes tick{to{transform:translateX(-50%)}}}
+
+.label{font-family:var(--f-sign);font-size:12px;letter-spacing:.06em;color:var(--mute)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{display:inline-flex;align-items:center;gap:7px;font:600 14px/1 var(--f-body);border:1px solid var(--line);background:var(--bg2);color:var(--cream);border-radius:10px;padding:8px 12px;cursor:pointer;transition:transform .12s,background .12s}
+.chip:hover{transform:translateY(-1px)}
+.chip svg{width:18px;height:18px}
+.chip small{font-family:var(--f-num);font-size:11px;color:var(--mute)}
+.chip[aria-pressed="true"]{background:var(--gold);color:#1c1405;border-color:var(--gold)}
+.chip[aria-pressed="true"] small{color:#4a3a12}
+button:focus-visible,a:focus-visible{outline:2px solid var(--cash);outline-offset:2px}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:#06190f;border:1px solid var(--line);border-radius:14px;padding:5px}
+.tab{font-family:var(--f-sign);font-size:clamp(13px,3.4vw,17px);padding:12px 4px;border:0;border-radius:10px;background:transparent;color:var(--mute);cursor:pointer}
+.tab[aria-selected="true"]{background:linear-gradient(180deg,var(--cash),#46b77a);color:#06261a;box-shadow:0 3px 0 #2c8a57}
+.controls{display:flex;flex-direction:column;gap:12px}
+
+.section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:4px}
+.section-head h2{font-family:var(--f-sign);font-weight:400;font-size:26px;margin:0;color:var(--cream)}
+.list{display:flex;flex-direction:column;gap:18px}
+
+.ticket{position:relative;background:linear-gradient(170deg,var(--note-hi),var(--note));border-radius:16px;border:1px solid var(--line);overflow:hidden;
+  box-shadow:0 10px 24px rgba(0,0,0,.35)}
+.ticket::before{content:"";position:absolute;inset:6px;border-radius:11px;border:2px solid transparent;pointer-events:none;
+  background:repeating-linear-gradient(45deg,rgba(242,193,78,.5) 0 2px,transparent 2px 6px) border-box;
+  -webkit-mask:linear-gradient(#000 0 0) padding-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
+.t-top{position:relative;display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;padding:18px 20px 14px}
+.seal{width:76px;height:76px;border-radius:50%;display:grid;place-items:center;text-align:center;
+  background:radial-gradient(circle at 35% 30%,#ffe6a0,var(--gold) 45%,var(--gold-deep));color:#2a1c03;box-shadow:inset 0 0 0 3px rgba(0,0,0,.15),0 4px 10px rgba(0,0,0,.3)}
+.seal b{font-family:var(--f-sign);font-size:24px;line-height:1;font-weight:400;font-variant-numeric:tabular-nums}
+.seal i{display:block;font:600 9px/1 var(--f-num);font-style:normal;letter-spacing:.08em}
+.t-meta{min-width:0;display:flex;flex-direction:column;gap:3px}
+.t-meta .t{font-weight:800;font-size:16px}
+.t-meta .s{font-family:var(--f-num);font-size:12px;color:var(--mute)}
+.payout{font-family:var(--f-num);font-size:13px}
+.payout b{color:var(--cash);font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.pill{font-family:var(--f-sign);font-size:11px;padding:6px 10px;border-radius:8px;white-space:nowrap;border:1.5px solid currentColor}
+.pill.low{color:var(--low)} .pill.medium{color:var(--med)} .pill.high{color:var(--high)}
+.serial{position:absolute;right:20px;bottom:8px;font-family:var(--f-num);font-size:10px;letter-spacing:.2em;color:rgba(241,234,210,.35)}
+.perf{height:0;border-top:2px dashed rgba(241,234,210,.18);margin:0 18px}
+.legs{list-style:none;margin:0;padding:6px 0 26px;position:relative}
+.leg{display:grid;grid-template-columns:auto 1fr auto;gap:4px 12px;padding:12px 20px;align-items:start}
+.leg+.leg{border-top:1px solid rgba(241,234,210,.08)}
+.badge{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-family:var(--f-sign);font-size:13px;color:#08201a;grid-row:span 2;position:relative}
+.badge.player{border-radius:50% 50% 12px 12px}
+.badge svg{position:absolute;right:-6px;bottom:-6px;width:20px;height:20px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.4))}
+.leg .pick{font-weight:700;min-width:0}
+.leg .pick a{color:inherit;text-decoration:none;border-bottom:1px solid var(--line)}
+.leg .pick a:hover{border-color:var(--gold)}
+.leg .px{font-family:var(--f-num);font-size:14px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;color:var(--gold)}
+.leg .px span{display:block;color:var(--mute);font-size:11px}
+.leg .game{font-size:12px;color:var(--mute);font-family:var(--f-num);grid-column:2/-1}
+.leg ul{grid-column:2/-1;margin:4px 0 0;padding-left:16px;font-size:13.5px;color:#dfe6d6}
+.leg ul li::marker{color:var(--gold)}
+.tag{font:600 10px/1 var(--f-num);padding:3px 6px;border-radius:5px;border:1px solid var(--cash);color:var(--cash);margin-left:6px;vertical-align:2px;letter-spacing:.04em}
+.empty{background:var(--bg2);border:1px dashed var(--line);border-radius:14px;padding:22px 18px;color:var(--mute)}
+.empty b{color:var(--cream)}
+footer{font-size:12.5px;color:var(--mute);border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:6px;max-width:74ch}
+footer b{color:var(--cream)}
+@media (max-width:540px){.t-top{grid-template-columns:auto 1fr}.t-top .pill{grid-column:1/-1;justify-self:start}.seal{width:64px;height:64px}.seal b{font-size:20px}.leg{padding:12px 16px}}
+@media (prefers-reduced-motion:no-preference){.ticket{animation:deal .45s cubic-bezier(.2,.8,.2,1) both}.ticket:nth-child(2){animation-delay:.05s}.ticket:nth-child(3){animation-delay:.1s}.ticket:nth-child(4){animation-delay:.15s}
+  @keyframes deal{from{transform:translateY(10px) rotate(-.6deg)}to{transform:none}}}
+.hero-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.refresh{font:600 13px/1 var(--f-body);background:transparent;color:var(--cash);border:1.5px solid var(--cash);border-radius:10px;padding:9px 12px;cursor:pointer}
+.refresh:disabled{opacity:.7;cursor:progress}
+@media (max-width:540px){.hero-side{align-items:flex-start}.stamp{text-align:left}}
+</style>
+</head>
+<body>
+
+<canvas id="rain" aria-hidden="true"></canvas>
+<div class="wrap">
+  <section class="hero">
+    <div class="hero-row">
+      <div>
+        <h1>Pacheco Parlay Hub</h1>
+        <p class="tagline">Stat-backed Polymarket parlays for NFL, NBA, MLB and soccer, pulled live from Polymarket every time you open it.</p>
+      </div>
+      <div class="hero-side"><div class="stamp" id="stamp">Loading odds…</div><button class="refresh" id="refresh" type="button">Refresh odds</button></div>
+    </div>
+    <div class="balls" id="balls"></div>
+  </section>
+
+  <div class="ticker" aria-label="Today's slate"><div class="ticker-track" id="ticker"><span>Loading the slate…</span></div></div>
+
+  <div class="controls">
+    <div class="row" id="sports" role="group" aria-label="Sport"></div>
+    <div class="tabs" role="tablist" aria-label="View">
+      <button class="tab" role="tab" data-view="risk">Risk</button>
+      <button class="tab" role="tab" data-view="type">Bet type</button>
+      <button class="tab" role="tab" data-view="mult">Multiplier</button>
+    </div>
+    <div class="row" id="subs" role="group" aria-label="Filter"></div>
+  </div>
+
+  <main id="out" class="list" aria-live="polite">
+    <div class="empty"><b>Loading Polymarket odds and team stats.</b> Tickets appear here once the latest board loads.</div>
+  </main>
+
+  <footer>
+    <div><b>How these are built.</b> Leg prices are Polymarket's current ask for that side. The payout is 1 ÷ (product of leg prices), which assumes the legs are independent; Polymarket prices its own Combos, so the real payout can differ a little.</div>
+    <div><b>Stats estimate</b> comes from ESPN season numbers: point or goal margins for team picks, and how often a player has cleared the line for props. A leg only makes a ticket when the stats agree with the side. Early-season samples are small and the market price already reflects public stats, so treat the estimate as context, not an edge.</div>
+    <div>Prices come from Polymarket’s public API and stats from ESPN, loaded in your browser on each visit. Not affiliated with Polymarket or ESPN.</div>
+    <div>Low risk means a combined market chance of 35% or better, medium 12–35%, high under 12%. Only bet what you can afford to lose.</div>
+  </footer>
+</div>
+
+<script>
+// Builds the board in the visitor's browser: Polymarket Gamma API for prices, ESPN for stats.
+// Returns {at, legs} with legs as compact arrays: [lg, game, startISO16, eventSlug, isProp, marketId, side, pick, price, statsProb, liquidity, why[]]
+async function buildBoard(progress = () => {}) {
+  const HOURS = 100;
+  const LEAGUES = {
+    nfl: { tag: 450, espn: 'football/nfl', sport: 'nfl', label: 'NFL' },
+    nba: { tag: 745, espn: 'basketball/nba', sport: 'nba', label: 'NBA', props: true },
+    mlb: { tag: 100381, espn: 'baseball/mlb', sport: 'mlb', label: 'MLB' },
+    epl: { tag: 82, espn: 'soccer/eng.1', sport: 'soccer', label: 'Premier League' },
+    lal: { tag: 780, espn: 'soccer/esp.1', sport: 'soccer', label: 'LaLiga' },
+    sea: { tag: 101962, espn: 'soccer/ita.1', sport: 'soccer', label: 'Serie A' },
+    bun: { tag: 1494, espn: 'soccer/ger.1', sport: 'soccer', label: 'Bundesliga' },
+    fl1: { tag: 102070, espn: 'soccer/fra.1', sport: 'soccer', label: 'Ligue 1' },
+    mls: { tag: 100100, espn: 'soccer/usa.1', sport: 'soccer', label: 'MLS' },
+  };
+  const G = 'https://gamma-api.polymarket.com';
+  const now = Date.now();
+  const min = new Date(now - 2 * 36e5).toISOString(), max = new Date(now + HOURS * 36e5).toISOString();
+  const J = u => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z ]/g, ' ')
+    .replace(/\b(jr|sr|ii|iii|iv|fc|cf|ac|sc|afc|cfc|ssc|calcio|club|de|the)\b/g, ' ').replace(/\s+/g, ' ').trim();
+  const r1 = x => Math.round(x * 10) / 10, r3 = x => Math.round(x * 1000) / 1000;
+  const ncdf = z => 1 / (1 + Math.exp(-1.702 * z));
+  const price = (m, i) => {
+    const op = JSON.parse(m.outcomePrices || '[]').map(Number);
+    let p = op[i];
+    if (m.bestBid != null && m.bestAsk != null && m.bestAsk - m.bestBid <= 0.05) p = i === 0 ? m.bestAsk : 1 - m.bestBid;
+    return r3(p);
+  };
+  const tight = m => m.bestAsk == null || m.bestBid == null || m.bestAsk - m.bestBid <= 0.06;
+  const live = m => m.active && !m.closed && m.acceptingOrders !== false;
+  const startOf = m => { const s = m.gameStartTime || m.events?.[0]?.startTime || m.endDate; return new Date(String(s).replace(' ', 'T').replace(/\+00$/, 'Z')).toISOString(); };
+  const marketsOf = async (tag, types) => {
+    const out = [];
+    for (let off = 0; off < 1000; off += 100) {
+      const q = `${G}/markets?tag_id=${tag}&${types.map(t => 'sports_market_types=' + t).join('&')}&closed=false&limit=100&offset=${off}&end_date_min=${min}&end_date_max=${max}`;
+      const j = await J(q) || []; out.push(...j); if (j.length < 100) break;
+    }
+    return out.filter(live);
+  };
+
+  // standings
+  progress('Loading team stats');
+  const standings = {};
+  const flat = j => { const out = []; const walk = n => { if (n?.standings?.entries) out.push(...n.standings.entries); (n?.children || []).forEach(walk); }; walk(j); return out; };
+  await Promise.all(Object.entries(LEAGUES).map(async ([k, L]) => {
+    const j = await J('https://site.api.espn.com/apis/v2/sports/' + L.espn + '/standings');
+    standings[k] = flat(j).map(e => {
+      const s = {}; (e.stats || []).forEach(x => { s[x.name] = x.value ?? x.displayValue; s[x.name + '_d'] = x.displayValue; });
+      const gp = s.gamesPlayed ?? ((s.wins || 0) + (s.losses || 0) + (s.ties || 0));
+      return { id: e.team.id, names: [e.team.displayName, e.team.shortDisplayName, e.team.name, e.team.location].map(norm).filter(Boolean),
+        name: e.team.shortDisplayName || e.team.displayName, s, gp, rec: s.overall_d || `${s.wins}-${s.losses}`, home: s.Home_d, road: s.Road_d, streak: s.streak_d };
+    });
+  }));
+  const GENERIC = new Set(['real','rc','rcd','cd','ud','ca','sd','deportivo','united','city','town','athletic','atletico','sporting','olympique','as','us','ogc','rb','vfb','vfl','tsg','sv','fsv','borussia','bayer','inter','hotspur','albion','hove','and','wanderers','balompie','futbol','calcio']);
+  const toks = s => norm(s).split(' ').filter(w => w.length > 1);
+  const findTeam = (k, nm) => {
+    const n = norm(nm); const list = standings[k] || [];
+    const exact = list.find(t => t.names.includes(n)); if (exact) return exact;
+    const want = toks(nm); let best = null, bestScore = 0;
+    for (const t of list) {
+      const have = new Set(t.names.flatMap(x => x.split(' ')));
+      let sc = 0; want.forEach((w, i) => { if (have.has(w)) sc += (GENERIC.has(w) ? 0.25 : 1) + 0.01 * (want.length - i); });
+      if (sc > bestScore) { bestScore = sc; best = t; }
+    }
+    return bestScore >= 1 ? best : null;
+  };
+
+  const legs = [], propPlayers = [];
+  for (const [k, L] of Object.entries(LEAGUES)) {
+    progress('Pulling ' + L.label + ' odds');
+    const ml = await marketsOf(L.tag, ['moneyline']);
+    const byEvent = new Map();
+    ml.forEach(m => { const ev = m.events?.[0]; if (!ev || / - /.test(ev.title || '')) return; const a = byEvent.get(ev.slug) || { ev, ms: [] }; a.ms.push(m); byEvent.set(ev.slug, a); });
+    for (const { ev, ms } of byEvent.values()) {
+      const t = startOf(ms[0]); if (Date.parse(t) < now - 2 * 36e5 || Date.parse(t) > now + HOURS * 36e5) continue;
+      const base = [k, ev.title, t.slice(0, 16), ev.slug];
+      if (L.sport === 'soccer') {
+        const teams = (ev.title || '').split(' vs. ');
+        const T = teams.map(n => findTeam(k, n));
+        if (T.length !== 2 || !T[0] || !T[1] || T[0] === T[1]) continue;
+        const rate = x => ({ f: (x.s.pointsFor || 0) / Math.max(x.gp, 1), a: (x.s.pointsAgainst || 0) / Math.max(x.gp, 1) });
+        const A = rate(T[0]), B = rate(T[1]);
+        const lh = Math.max(0.3, (A.f + B.a) / 2 * 1.12), la = Math.max(0.3, (B.f + A.a) / 2 * 0.9);
+        const pois = (l, x) => Math.exp(-l) * l ** x / [1, 1, 2, 6, 24, 120, 720, 5040, 40320][x];
+        let ph = 0, pa = 0; for (let i = 0; i < 9; i++) for (let j = 0; j < 9; j++) { const p = pois(lh, i) * pois(la, j); if (i > j) ph += p; else if (j > i) pa += p; }
+        ms.filter(m => !/draw/i.test(m.groupItemTitle || '')).forEach(m => {
+          const idx = norm(m.groupItemTitle) === norm(teams[0]) ? 0 : norm(m.groupItemTitle) === norm(teams[1]) ? 1 : -1;
+          if (idx < 0 || !tight(m)) return;
+          const me = T[idx], op = T[1 - idx], mr = idx ? B : A, orr = idx ? A : B;
+          const p = price(m, 0); if (!(p > 0.08 && p < 0.95)) return;
+          legs.push([...base, 0, m.id, 0, `${me.name} to win`, p, r3(idx ? pa : ph), Math.round(m.liquidityNum || 0),
+            [`${me.name} ${me.rec} (W-D-L) · ${r1(mr.f)} goals scored, ${r1(mr.a)} conceded per match`,
+             `${op.name} ${op.rec} · ${r1(orr.f)} scored, ${r1(orr.a)} conceded per match`,
+             `${idx ? 'Away side' : 'Home side'}; a draw loses this pick`]]);
+        });
+        continue;
+      }
+      const m = ms[0]; if (!tight(m)) continue;
+      const outs = JSON.parse(m.outcomes || '[]');
+      const T = outs.map(n => findTeam(k, n));
+      if (!T[0] || !T[1]) continue;
+      const diff = x => ((x.s.pointsFor || 0) - (x.s.pointsAgainst || 0)) / Math.max(x.gp, 1);
+      const hfa = { nfl: 1.5, nba: 2.5, mlb: 0.15 }[k] || 0, sd = { nfl: 13.5, nba: 12, mlb: 4 }[k] || 10;
+      const pm0 = ncdf(((diff(T[0]) - diff(T[1])) / 2 - hfa) / sd);
+      const ppg = x => r1((x.s.pointsFor || 0) / Math.max(x.gp, 1)), opg = x => r1((x.s.pointsAgainst || 0) / Math.max(x.gp, 1));
+      const unit = k === 'mlb' ? 'runs' : 'pts';
+      [0, 1].forEach(i => {
+        const p = price(m, i); if (!(p > 0.08 && p < 0.95)) return;
+        const me = T[i], op = T[1 - i];
+        legs.push([...base, 0, m.id, i, `${outs[i]} moneyline`, p, r3(i ? 1 - pm0 : pm0), Math.round(m.liquidityNum || 0),
+          [`${me.name} ${me.rec}${i ? ' · home ' + (me.home || '–') : ' · road ' + (me.road || '–')}${me.streak ? ' · streak ' + me.streak : ''}`,
+           `Scores ${ppg(me)} ${unit}, allows ${opg(me)} per game (${diff(me) >= 0 ? '+' : ''}${r1(diff(me))} margin)`,
+           `${op.name} ${op.rec}: ${ppg(op)} for, ${opg(op)} against (${diff(op) >= 0 ? '+' : ''}${r1(diff(op))})`]]);
+      });
+      if (L.props) byEvent.get(ev.slug).outs = outs;
+    }
+    if (L.props) {
+      progress('Pulling ' + L.label + ' player props');
+      const props = await marketsOf(L.tag, ['points', 'rebounds', 'assists', 'threes']);
+      props.filter(m => tight(m) && (m.liquidityNum || 0) >= 250).forEach(m => {
+        const ev = m.events?.[0]; const g = ev && byEvent.get(ev.slug); if (!g || !g.outs) return;
+        propPlayers.push({ k, base: [k, ev.title, startOf(m).slice(0, 16), ev.slug], m, name: (m.question.split(':')[0] || '').trim(), stat: m.sportsMarketType, line: m.line, outs: g.outs });
+      });
+    }
+  }
+
+  progress('Checking player game logs');
+  const IDX = { points: 'points', rebounds: 'totalRebounds', assists: 'assists', threes: 'threePointFieldGoalsMade-threePointFieldGoalsAttempted' };
+  const rosterCache = {}, logCache = {};
+  const roster = (k, id) => rosterCache[id] ??= J(`https://site.web.api.espn.com/apis/site/v2/sports/${LEAGUES[k].espn}/teams/${id}/roster`).then(j => (j?.athletes || []).flatMap(a => a.items ? a.items : [a]));
+  const gamelog = (k, id) => logCache[id] ??= J(`https://site.web.api.espn.com/apis/common/v3/sports/${LEAGUES[k].espn}/athletes/${id}/gamelog`);
+  const seen = new Set();
+  await Promise.all(propPlayers.map(async pp => {
+    const T = pp.outs.map(n => findTeam(pp.k, n)).filter(Boolean);
+    let ath = null;
+    for (const t of T) { const r = await roster(pp.k, t.id); ath = r.find(a => norm(a.displayName) === norm(pp.name) || norm(a.fullName) === norm(pp.name)); if (ath) break; }
+    if (!ath) return;
+    const gl = await gamelog(pp.k, ath.id); if (!gl) return;
+    const st = (gl.seasonTypes || []).find(s => /Regular/i.test(s.displayName)) || gl.seasonTypes?.[0];
+    const col = (gl.names || []).indexOf(IDX[pp.stat]); if (col < 0 || !st) return;
+    const vals = (st.categories || []).flatMap(c => c.events || [])
+      .map(e => ({ v: parseFloat(String(e.stats[col]).split('-')[0]), d: Date.parse(gl.events?.[e.eventId]?.gameDate || 0) }))
+      .filter(g => !isNaN(g.v)).sort((a, b) => b.d - a.d).map(g => g.v);
+    const n = vals.length; if (n < 4) return;
+    const avg = vals.reduce((a, b) => a + b, 0) / n, l5 = vals.slice(0, 5), avg5 = l5.reduce((a, b) => a + b, 0) / l5.length;
+    const hits = vals.filter(v => v > pp.line).length, h5 = l5.filter(v => v > pp.line).length;
+    const pOver = (hits + 2) / (n + 4), over = pOver >= 0.5;
+    const p = price(pp.m, over ? 0 : 1);
+    const key = pp.m.id + (over ? 'o' : 'u'); if (seen.has(key)) return; seen.add(key);
+    if (!(p > 0.15 && p < 0.93) || Math.abs(pOver - 0.5) < 0.08) return;
+    const u = { points: 'pts', rebounds: 'reb', assists: 'ast', threes: '3PM' }[pp.stat];
+    legs.push([...pp.base, 1, pp.m.id, over ? 0 : 1, `${pp.name} ${over ? 'Over' : 'Under'} ${pp.line} ${u}`, p, r3(over ? pOver : 1 - pOver), Math.round(pp.m.liquidityNum || 0),
+      [`Season avg ${r1(avg)} ${u} over ${n} games vs line ${pp.line}`,
+       `Last ${l5.length}: ${l5.join(', ')} (avg ${r1(avg5)})`,
+       `Cleared ${pp.line} in ${hits}/${n} games this season, ${h5}/${l5.length} recently`]]);
+  }));
+  return { at: new Date().toISOString(), legs };
+}
+
+(() => {
+const LEAGUE = {nfl:['nfl','NFL'],nba:['nba','NBA'],mlb:['mlb','MLB'],epl:['soccer','EPL'],lal:['soccer','LaLiga'],sea:['soccer','Serie A'],bun:['soccer','Bundesliga'],fl1:['soccer','Ligue 1'],mls:['soccer','MLS']};
+const TARGETS = [2,3,5,10,20,50];
+const TYPES = [{id:'prop',label:'Player props'},{id:'ml',label:'Moneyline'},{id:'combo',label:'Combined'}];
+const RISKS = [{id:'low',label:'Low risk'},{id:'medium',label:'Medium risk'},{id:'high',label:'High risk'}];
+
+let store = {sport:'all', view:'risk', sub:{risk:'low', type:'prop', mult:'3'}};
+try { const s = JSON.parse(localStorage.getItem('parlaylab') || 'null'); if (s && s.sub) store = {...store, ...s, sub:{...store.sub, ...s.sub}}; } catch (e) {}
+const save = () => { try { localStorage.setItem('parlaylab', JSON.stringify(store)); } catch (e) {} };
+
+let board = null, prices = null, legs = [];
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pct = x => Math.round(x * 100) + '%';
+const fmtMult = x => x >= 10 ? x.toFixed(1) : x.toFixed(2);
+const when = iso => { const d = new Date(iso + (iso.length === 16 ? ':00Z' : '')); return d.toLocaleString([], {weekday:'short', hour:'numeric', minute:'2-digit'}); };
+
+function decode() {
+  if (!board) return [];
+  const pmap = (prices && prices.at > board.at) ? prices.p || {} : {};
+  const now = Date.now();
+  return (board.legs || []).map(a => {
+    const [lg, g, t, ev, isProp, mid, side, pick, p0, m, liq, why] = a;
+    const p = pmap[mid + '_' + side] ?? p0;
+    const start = Date.parse(t + ':00Z');
+    return {lg, sp: (LEAGUE[lg] || ['other'])[0], lgName: (LEAGUE[lg] || ['', lg])[1], g, t, start, ev, k: isProp ? 'prop' : 'ml', mid, side, pick, p, m, liq, why, url: 'https://polymarket.com/event/' + ev,
+      conf: 0.7 * p + 0.3 * m, backed: m >= 0.5 || m >= p};
+  }).filter(l => l.start > now && l.p > 0.05 && l.p < 0.96);
+}
+
+// Build one parlay toward a payout target from a pool of stat-backed legs.
+function build(pool, target, banned, needMix) {
+  const k = target <= 2 ? 2 : target <= 3 ? 2 : target <= 10 ? 3 : target <= 20 ? 4 : 5;
+  const q = Math.pow(target, -1 / k);
+  const ranked = pool.filter(l => !banned.has(l.mid + l.side))
+    .map(l => ({l, s: l.conf - 1.4 * Math.abs(l.p - q) + 0.5 * Math.max(0, l.m - l.p)}))
+    .sort((a, b) => b.s - a.s).map(x => x.l);
+  const chosen = [], games = new Map(), players = new Set();
+  let prod = 1;
+  const ok = l => {
+    const c = games.get(l.ev) || {ml:0, prop:0};
+    if (l.k === 'ml' && (c.ml || c.prop)) return false;
+    if (l.k === 'prop' && (c.ml || c.prop >= 2)) return false;
+    if (l.k === 'prop' && players.has(l.pick.split(/ (Over|Under) /)[0])) return false;
+    return true;
+  };
+  const add = l => { chosen.push(l); prod *= l.p; const c = games.get(l.ev) || {ml:0, prop:0}; c[l.k]++; games.set(l.ev, c); if (l.k === 'prop') players.add(l.pick.split(/ (Over|Under) /)[0]); };
+  if (needMix) {
+    const pr = ranked.find(l => l.k === 'prop' && ok(l)); if (!pr) return null; add(pr);
+    const ml = ranked.find(l => l.k === 'ml' && ok(l)); if (!ml) return null; add(ml);
+  }
+  for (const l of ranked) {
+    if (1 / prod >= target || chosen.length >= 9) break;
+    if (chosen.includes(l) || !ok(l)) continue;
+    const need = target * prod; // price that would land exactly on target
+    // last leg: prefer the strongest leg that still reaches the target without overshooting much
+    if (chosen.length >= 1 && 1 / (prod * l.p) >= target) {
+      const fit = ranked.filter(x => !chosen.includes(x) && ok(x) && x.p <= 1 / need && x.p >= 0.6 / need).sort((a, b) => b.conf - a.conf)[0];
+      add(fit || l); break;
+    }
+    add(l);
+  }
+  if (chosen.length < 2 || 1 / prod < target) return null;
+  const mult = 1 / prod, pm = prod, ps = chosen.reduce((a, l) => a * l.m, 1);
+  const risk = pm >= 0.35 ? 'low' : pm >= 0.12 ? 'medium' : 'high';
+  return {legs: chosen, mult, pm, ps, risk, target, key: chosen.map(l => l.mid + l.side).sort().join('|')};
+}
+
+function generate(sport) {
+  const pool = legs.filter(l => l.backed && (sport === 'all' || l.sp === sport));
+  const out = [];
+  const seen = new Set();
+  for (const type of TYPES) {
+    const tpool = type.id === 'combo' ? pool : pool.filter(l => l.k === type.id);
+    for (const target of TARGETS) {
+      const banned = new Set();
+      for (let v = 0; v < 2; v++) {
+        const p = build(tpool, target, banned, type.id === 'combo');
+        if (!p) break;
+        p.legs.forEach(l => banned.add(l.mid + l.side));
+        p.type = type.id;
+        if (seen.has(p.key)) continue;
+        seen.add(p.key); out.push(p);
+      }
+    }
+  }
+  return out;
+}
+
+
+
+const ICON = {
+  nfl:`<svg viewBox="0 0 48 48" aria-hidden="true"><ellipse cx="24" cy="24" rx="20" ry="12.5" transform="rotate(-35 24 24)" fill="#8a4b25" stroke="#4e2a12" stroke-width="2"/><path d="M14 30 34 18" stroke="#f6efe0" stroke-width="2"/><path d="M20 23.5l3 4.6M23.2 21.6l3 4.6M26.4 19.7l3 4.6" stroke="#f6efe0" stroke-width="2" stroke-linecap="round"/></svg>`,
+  nba:`<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="#e2762b" stroke="#6d3210" stroke-width="2"/><path d="M4 24h40M24 4v40" stroke="#6d3210" stroke-width="2"/><path d="M10 9.5c6 6.5 6 22.5 0 29M38 9.5c-6 6.5-6 22.5 0 29" fill="none" stroke="#6d3210" stroke-width="2"/></svg>`,
+  mlb:`<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="#f7f3ea" stroke="#9a9384" stroke-width="2"/><path d="M12 9c5 8 5 22 0 30M36 9c-5 8-5 22 0 30" fill="none" stroke="#c4312b" stroke-width="2" stroke-dasharray="2.5 2"/></svg>`,
+  soccer:`<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="#f7f7f2" stroke="#2a2a2a" stroke-width="2"/><path d="M24 15l7.6 5.5-2.9 9h-9.4l-2.9-9z" fill="#1f1f1f"/><path d="M24 15V5.5M31.6 20.5l9-3M28.7 29.5l5.5 7.7M19.3 29.5l-5.5 7.7M16.4 20.5l-9-3" stroke="#1f1f1f" stroke-width="2"/></svg>`
+};
+const SPORT_COLOR = {nfl:'#d9a066', nba:'#f0955a', mlb:'#e9e2cf', soccer:'#9fe0c0'};
+$('#balls').innerHTML = ICON.nfl + ICON.nba + ICON.mlb + ICON.soccer;
+
+const SPORTS = [
+  {id:'all',label:'All'},{id:'nfl',label:'NFL'},{id:'nba',label:'NBA'},{id:'mlb',label:'MLB'},{id:'soccer',label:'Soccer'}
+];
+const initials = name => name.replace(/\b(Jr|Sr|II|III)\.?$/,'').split(/\s+/).filter(Boolean).map(w => w[0]).slice(0,2).join('').toUpperCase();
+const teamCode = l => {
+  const parts = l.ev.split('-');
+  if (l.sp !== 'soccer') return (parts[1 + l.side] || '').toUpperCase().slice(0,3);
+  const team = l.pick.replace(/ (moneyline|to win)$/,'');
+  const [a, b] = l.g.split(' vs. ');
+  const code = team && a && team.length && a.toLowerCase().includes(team.toLowerCase().split(' ')[0]) ? parts[1] : (b && b.toLowerCase().includes(team.toLowerCase().split(' ')[0]) ? parts[2] : null);
+  return (code || initials(team)).toUpperCase().slice(0,3);
+};
+const badge = l => {
+  const isProp = l.k === 'prop';
+  const txt = isProp ? initials(l.pick.split(/ (Over|Under) /)[0]) : teamCode(l);
+  return `<div class="badge${isProp ? ' player' : ''}" style="background:${SPORT_COLOR[l.sp] || '#ccc'}">${esc(txt)}${ICON[l.sp] || ''}</div>`;
+};
+const serial = key => { let h = 2166136261; for (const c of key) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return 'PL ' + (h >>> 0).toString(16).toUpperCase().padStart(8,'0').replace(/(.{4})/,'$1 '); };
+
+function slip(p) {
+  const typeLabel = TYPES.find(t => t.id === p.type).label;
+  return `<article class="ticket">
+    <div class="t-top">
+      <div class="seal"><div><b>${fmtMult(p.mult)}x</b><i>PAYOUT</i></div></div>
+      <div class="t-meta"><span class="t">${p.legs.length}-leg ${typeLabel.toLowerCase()}</span>
+        <span class="payout">$10 → <b data-count="${(10 * p.mult).toFixed(2)}">$${(10 * p.mult).toFixed(2)}</b></span>
+        <span class="s">Market ${pct(p.pm)} · stats est. ${pct(p.ps)} · ${p.target}x+ ladder</span></div>
+      <span class="pill ${p.risk}">${p.risk} risk</span>
+    </div>
+    <div class="perf"></div>
+    <ol class="legs">${p.legs.map(l => `
+      <li class="leg">
+        ${badge(l)}
+        <div class="pick"><a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.pick)}</a>${l.m - l.p >= 0.05 ? '<span class="tag">STATS LEAN</span>' : ''}</div>
+        <div class="px">${Math.round(l.p * 100)}¢<span>stats ${pct(l.m)}</span></div>
+        <div class="game">${esc(l.lgName)} · ${esc(l.g)} · ${when(l.t)}</div>
+        <ul>${l.why.map(w => `<li>${esc(w)}</li>`).join('')}</ul>
+      </li>`).join('')}
+    </ol>
+    <span class="serial">${serial(p.key)}</span>
+  </article>`;
+}
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function countUp() {
+  if (reduce) return;
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const end = +el.dataset.count, t0 = performance.now(), dur = 900;
+    const step = now => { const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3); el.textContent = '$' + (end * e).toFixed(2); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  });
+}
+
+function ticker() {
+  const games = new Map();
+  legs.filter(l => l.k === 'ml').forEach(l => { const g = games.get(l.ev) || {l, best:l}; if (l.p > g.best.p) g.best = l; games.set(l.ev, g); });
+  const items = [...games.values()].sort((a, b) => a.l.start - b.l.start).slice(0, 30)
+    .map(({l, best}) => `<span>${esc(l.lgName)} · ${esc(l.g)} · <b>${esc(best.pick.replace(/ (moneyline|to win)$/,''))} ${Math.round(best.p * 100)}¢</b></span>`).join('');
+  $('#ticker').innerHTML = items ? items + items : '<span>No games on the slate right now.</span>';
+}
+
+function render() {
+  $('#sports').innerHTML = SPORTS.map(s => {
+    const n = s.id === 'all' ? legs.length : legs.filter(l => l.sp === s.id).length;
+    return `<button class="chip" data-sport="${s.id}" aria-pressed="${store.sport === s.id}">${s.id === 'all' ? '' : ICON[s.id]}${s.label}<small>${n}</small></button>`;
+  }).join('');
+  document.querySelectorAll('.tab').forEach(t => t.setAttribute('aria-selected', String(t.dataset.view === store.view)));
+  const subs = store.view === 'risk' ? RISKS : store.view === 'type' ? TYPES : TARGETS.map(t => ({id: String(t), label: t + 'x+'}));
+  $('#subs').innerHTML = subs.map(s => `<button class="chip" data-sub="${s.id}" aria-pressed="${store.sub[store.view] === s.id}">${s.label}</button>`).join('');
+  if (!board) return;
+  const out = $('#out'), sp = store.sport, sub = store.sub[store.view];
+  if (sp === 'mlb' && !legs.some(l => l.sp === 'mlb')) {
+    out.innerHTML = `<div class="empty"><b>MLB is in its offseason.</b> Polymarket has no MLB games listed right now. This tab fills in on its own once spring games get markets.</div>`;
+    return;
+  }
+  const all = generate(sp);
+  let list, title;
+  if (store.view === 'risk') { list = all.filter(p => p.risk === sub).sort((a, b) => b.pm - a.pm); title = RISKS.find(r => r.id === sub).label; }
+  else if (store.view === 'type') { list = all.filter(p => p.type === sub).sort((a, b) => a.mult - b.mult); title = TYPES.find(t => t.id === sub).label; }
+  else { list = all.filter(p => p.target === +sub).sort((a, b) => b.pm - a.pm); title = sub + 'x and up'; }
+  let empty = '';
+  if (!list.length) {
+    const nflNoProps = sub === 'prop' && (sp === 'nfl' || sp === 'soccer');
+    empty = `<div class="empty"><b>No tickets fit this filter right now.</b> ${nflNoProps ? 'Polymarket is not listing player props for this sport yet; the NBA tab has them.' : 'Not enough stat-backed legs are open for this sport and target. Try another sport or ladder.'}</div>`;
+  }
+  out.innerHTML = `<div class="section-head"><h2>${esc(title)}</h2><span class="label">${list.length} TICKET${list.length === 1 ? '' : 'S'}</span></div>` + (empty || list.map(slip).join(''));
+  countUp();
+}
+
+function stamp(fresh) {
+  const el = $('#stamp');
+  if (!board) { el.textContent = fresh === false ? "Odds haven't loaded yet. Check back in a minute." : 'Loading odds…'; return; }
+  const at = (prices && prices.at > board.at) ? prices.at : board.at;
+  const age = (Date.now() - Date.parse(at)) / 6e4;
+  el.className = 'stamp' + (age > 30 ? ' stale' : '');
+  el.innerHTML = `ODDS AS OF<br><b>${new Date(at).toLocaleString([], {weekday:'short', hour:'numeric', minute:'2-digit'})}</b><br>auto-updates every 15 min`;
+}
+
+// ---- money rain: bills and coins drawn on a canvas ----
+const cv = $('#rain'), cx = cv.getContext('2d');
+let bits = [], raf = 0;
+const size = () => { const r = devicePixelRatio || 1; cv.width = innerWidth * r; cv.height = innerHeight * r; cx.setTransform(r, 0, 0, r, 0, 0); };
+addEventListener('resize', size); size();
+function drawBill(b) {
+  cx.save(); cx.translate(b.x, b.y); cx.rotate(b.r); cx.scale(Math.cos(b.flip), 1);
+  cx.fillStyle = '#9bd8a9'; cx.strokeStyle = '#2f7a4b'; cx.lineWidth = 1.5;
+  cx.beginPath(); cx.roundRect(-22, -11, 44, 22, 3); cx.fill(); cx.stroke();
+  cx.strokeStyle = 'rgba(47,122,75,.6)'; cx.strokeRect(-18, -7.5, 36, 15);
+  cx.fillStyle = '#2f7a4b'; cx.beginPath(); cx.arc(0, 0, 5.5, 0, Math.PI * 2); cx.fill();
+  cx.fillStyle = '#9bd8a9'; cx.font = '700 8px Archivo, sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('$', 0, 0.5);
+  cx.restore();
+}
+function drawCoin(b) {
+  cx.save(); cx.translate(b.x, b.y); cx.scale(Math.max(.15, Math.abs(Math.cos(b.flip))), 1);
+  const g = cx.createRadialGradient(-3, -3, 1, 0, 0, 10); g.addColorStop(0, '#fff1b8'); g.addColorStop(.5, '#f2c14e'); g.addColorStop(1, '#a8741f');
+  cx.fillStyle = g; cx.beginPath(); cx.arc(0, 0, 9, 0, Math.PI * 2); cx.fill();
+  cx.strokeStyle = '#8a5d14'; cx.lineWidth = 1.2; cx.stroke();
+  cx.fillStyle = '#7a5210'; cx.font = '800 10px Archivo, sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle'; cx.fillText('$', 0, 0.5);
+  cx.restore();
+}
+function burst(n = 46, fromTop = true, ox, oy) {
+  if (reduce) return;
+  for (let i = 0; i < n; i++) {
+    const coin = Math.random() < .45;
+    bits.push(fromTop
+      ? {coin, x: Math.random() * innerWidth, y: -30 - Math.random() * innerHeight * .6, vx: (Math.random() - .5) * .6, vy: 1.6 + Math.random() * 2.2, r: Math.random() * 6, vr: (Math.random() - .5) * .06, flip: Math.random() * 6, vf: .05 + Math.random() * .1}
+      : {coin, x: ox, y: oy, vx: (Math.random() - .5) * 7, vy: -4 - Math.random() * 5, r: Math.random() * 6, vr: (Math.random() - .5) * .2, flip: Math.random() * 6, vf: .1 + Math.random() * .15, g: true});
+  }
+  if (!raf) raf = requestAnimationFrame(tickRain);
+}
+function tickRain() {
+  cx.clearRect(0, 0, innerWidth, innerHeight);
+  bits = bits.filter(b => b.y < innerHeight + 40);
+  for (const b of bits) {
+    if (b.g) b.vy += .22; else b.vx += Math.sin(b.y / 40) * .02;
+    b.x += b.vx; b.y += b.vy; b.r += b.vr; b.flip += b.vf;
+    b.coin ? drawCoin(b) : drawBill(b);
+  }
+  raf = bits.length ? requestAnimationFrame(tickRain) : 0;
+  if (!raf) cx.clearRect(0, 0, innerWidth, innerHeight);
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b) {
+    if (b.dataset.sport) store.sport = b.dataset.sport;
+    else if (b.dataset.view) store.view = b.dataset.view;
+    else if (b.dataset.sub) store.sub[store.view] = b.dataset.sub;
+    else return;
+    save(); render();
+    const r = b.getBoundingClientRect(); burst(14, false, r.left + r.width / 2, r.top + r.height / 2);
+    return;
+  }
+  const seal = e.target.closest('.seal');
+  if (seal) { const r = seal.getBoundingClientRect(); burst(28, false, r.left + r.width / 2, r.top + r.height / 2); }
+});
+render();
+burst(54);
+
+const CACHE = 'pph-board-v1';
+let loading = false;
+async function load(force) {
+  const btn = $('#refresh');
+  if (!force && !board) {
+    try { const c = JSON.parse(localStorage.getItem(CACHE) || 'null'); if (c && Date.now() - Date.parse(c.at) < 10 * 6e4) { board = c; legs = decode(); stamp(); ticker(); render(); return; } } catch (e) {}
+  }
+  if (loading) return; loading = true; btn.disabled = true;
+  try {
+    const b = await buildBoard(msg => { btn.textContent = msg + '…'; });
+    if (b.legs.length < 10) throw new Error('thin board');
+    const had = !!board; board = b;
+    try { localStorage.setItem(CACHE, JSON.stringify(b)); } catch (e) {}
+    legs = decode(); stamp(); ticker(); render(); if (had) burst(30);
+  } catch (e) {
+    if (!board) { $('#stamp').textContent = 'Odds unavailable'; $('#out').innerHTML = '<div class="empty"><b>Could not reach Polymarket or ESPN.</b> Check your connection, then tap Refresh odds.</div>'; }
+  } finally { loading = false; btn.disabled = false; btn.textContent = 'Refresh odds'; }
+}
+$('#refresh').addEventListener('click', e => { e.stopPropagation(); load(true); });
+load(false);
+setInterval(() => { if (document.visibilityState === 'visible') load(true); }, 15 * 6e4);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && board && Date.now() - Date.parse(board.at) > 15 * 6e4) load(true); });
+setInterval(() => { if (board) { legs = decode(); stamp(); render(); } }, 5 * 6e4);
+})();
+</script>
+
+</body>
+</html>
